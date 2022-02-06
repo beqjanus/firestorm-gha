@@ -51,6 +51,9 @@ jobs:
         echo VIEWER_VERSION_STR=${majorVer}.${minorVer}.${patchVer}.${VIEWER_VERSION_REVISION} >> $GITHUB_ENV
         echo VIEWER_VERSION_GITHASH=$(git log -n 1 | grep "Merge " | awk '{ print $2 }' | xargs git rev-parse --short || git rev-parse --short HEAD) >> $GITHUB_ENV
         df -h
+        grep http: autobuild.xml | wc -l || true
+        perl -i -pe 's@\bhttp:@https:@g' autobuild.xml
+        grep http: autobuild.xml | wc -l || true
     - name: Setup vsdevenv
       uses: seanmiddleditch/gha-setup-vsdevenv@master
     - name: Setup MSBuild
@@ -80,6 +83,19 @@ jobs:
       with:
         path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
         key: ${{ runner.os }}-cacheddownloads-${{ hashFiles('autobuild.xml') }}-${{ env.VIEWER_CHANNEL }}
+
+    # use cdn prebuilts as temporary 403 workaround
+    - name: fetch cdn autobuild-cache
+      if: steps.cacheddownloads.outputs.cache-hit != 'true'
+      shell: powershell
+      run: wget -O 20220207-6.5.3-windows64-autobuild-cache.tar https://siasky.net/CADgJFVLQjmdZOF3V7YyYhtYlbCRILOYtwRy9pinZekPmg
+    - name: verify and extract cdn autobuild-cache
+      if: steps.cacheddownloads.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo '84523e6646a98f7f1ece5ed6c12e43c8d49ad0fbb294754c3aa5355c5d2a92d4e4248a74b4152d85fc024aa9d93bfe7b16a4733fd491c3d8425cec806366c646 *20220207-6.5.3-windows64-autobuild-cache.tar' | sha512sum -c -
+        tar -C c:/cache/autobuild --strip-components=1 -xvf 20220207-6.5.3-windows64-autobuild-cache.tar
+
     - name: cache -- packages cache
       id: cachedpackages
       uses: actions/cache@v2
